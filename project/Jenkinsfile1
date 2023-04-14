@@ -1,0 +1,48 @@
+pipeline{
+   agent any
+   tools{
+      maven 'M2_HOME'
+   }
+   stages{
+      stage('git checkout'){
+         steps{
+            git branch: 'main', url: 'https://github.com/snehalatha1/project-insureme.git'
+         }
+       }
+      stage('package a app'){
+         steps{
+             sh 'mvn clean package'
+          }
+      }
+      stage('publish the reports'){
+         steps{
+            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: '/var/lib/jenkins/workspace/insureproject/target/surefire-reports', reportFiles: 'index.html', reportName: 'HTML Report', reportTitles: '', useWrapperFileDirectly: true])
+    
+          }
+      }
+      stage('Docker Image creation'){
+          steps{
+             sh 'docker build -t snehalatha15/insureimage:1.0 .'
+       }
+      }
+      stage('Docker login'){
+         steps{
+            withCredentials([usernamePassword(credentialsId: 'dockerhub', passwordVariable: 'hubpswd', usernameVariable: 'hubuser')]) {
+               sh 'docker login -u ${env.hubuser} -p ${env.hubpswd}'
+            }
+         }    
+      }
+      stage('Docker push'){
+         steps{
+            sh 'docker push snehalatha15/insureimage:1.0'
+         }
+      }
+      stage('Deploy app by Ansible'){
+         steps{
+            ansiblePlaybook credentialsId: 'ansiblecreds', disableHostKeyChecking: true, installation: 'ansible', inventory: '/etc/ansible/hosts', playbook: 'insure.yml'
+         } 
+      }
+   }
+}
+ 
+
